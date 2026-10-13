@@ -1,0 +1,25 @@
+# 가상환경 / 파이썬 캐시
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# 로컬 DB (create_mock_db.py로 다시 만들 수 있음, 로그에는 실제 사용자 질문이 쌓임)
+*.db
+
+# 평가 결과 (evaluate.py로 다시 만들 수 있음)
+result_*.csv
+eval_result.csv
+
+# 공단에서 받은 실제 데이터 - 공개 저장소에 올려도 되는지 확인 전까지 제외
+taas_chatbot_poc/data/
+
+# 환경변수 / 비밀정보 (Oracle 접속 정보 등)
+.env
+.env.*
+
+# 에디터 / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

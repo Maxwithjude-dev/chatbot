@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TAAS 챗봇 PoC</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --text: #1f2328; --muted: #6b7280;
+    --user: #2563eb; --user-text: #ffffff; --bot: #eef1f5; --border: #e3e6ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171a; --panel: #1e2125; --text: #e6e8eb; --muted: #9aa1ab;
+      --user: #3b82f6; --user-text: #ffffff; --bot: #2a2e34; --border: #33383f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Pretendard", "Malgun Gothic", system-ui, sans-serif;
+    height: 100vh; display: flex; justify-content: center;
+  }
+  .app { width: 100%; max-width: 720px; display: flex; flex-direction: column; background: var(--panel); }
+  header { padding: 14px 16px; border-bottom: 1px solid var(--border); font-weight: 600; }
+  header small { font-weight: 400; color: var(--muted); margin-left: 6px; }
+  #log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 85%; padding: 10px 14px; border-radius: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .user { align-self: flex-end; background: var(--user); color: var(--user-text); border-bottom-right-radius: 4px; }
+  .bot { align-self: flex-start; background: var(--bot); border-bottom-left-radius: 4px; }
+  .bot p { margin: 0 0 6px; }
+  .bot p:last-of-type { margin-bottom: 0; }
+  .info { color: var(--muted); font-size: 13px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chips button {
+    border: 1px solid var(--user); background: transparent; color: var(--user);
+    border-radius: 999px; padding: 4px 12px; cursor: pointer; font: inherit; font-size: 14px;
+  }
+  .chips button:hover { background: var(--user); color: var(--user-text); }
+  .debug { margin-top: 6px; font-size: 12px; color: var(--muted); font-family: Consolas, monospace; }
+  form { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); }
+  input {
+    flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--bg); color: var(--text); font: inherit;
+  }
+  form button {
+    padding: 0 18px; border: 0; border-radius: 10px; background: var(--user); color: var(--user-text);
+    font: inherit; cursor: pointer;
+  }
+  form button:disabled { opacity: .5; cursor: default; }
+  label.toggle { font-size: 12px; color: var(--muted); font-weight: 400; float: right; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>TAAS 챗봇 <small>문장 매칭 PoC</small>
+    <label class="toggle"><input type="checkbox" id="showDebug" checked> 매칭 정보 표시</label>
+  </header>
+  <div id="log"></div>
+  <form id="form">
+    <input id="q" autocomplete="off" placeholder="궁금한 통계를 물어보세요 (예: 음주운전 사고 통계)" autofocus>
+    <button id="send">전송</button>
+  </form>
+</div>
+<script>
+const log = document.getElementById("log");
+const form = document.getElementById("form");
+const input = document.getElementById("q");
+const sendBtn = document.getElementById("send");
+const showDebug = document.getElementById("showDebug");
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function addUser(text) {
+  log.appendChild(el("div", "msg user", text));
+  log.scrollTop = log.scrollHeight;
+}
+
+function addBot(resp, ms) {
+  const box = el("div", "msg bot");
+  (resp.document || []).forEach((doc, i) => {
+    const p = el("p", null, doc);
+    box.appendChild(p);
+    const info = (resp.information || [])[i];
+    if (resp.status === "answer" && info) box.appendChild(el("p", "info", "· " + info));
+  });
+
+  // 되묻기: 후보 메뉴를 버튼으로
+  if (resp.status === "clarify" && resp.candidates?.length) {
+    const chips = el("div", "chips");
+    resp.candidates.slice(0, 3).forEach(c => {
+      const b = el("button", null, c.menu);
+      b.type = "button";
+      b.onclick = () => ask(c.menu);
+      chips.appendChild(b);
+    });
+    box.appendChild(chips);
+  }
+
+  if (showDebug.checked) {
+    const top = (resp.candidates || []).slice(0, 3).map(c => `${c.menu} ${c.score}`).join(", ");
+    box.appendChild(el("div", "debug",
+      `${resp.status} / ${resp.match_stage || "-"} / ${Math.round(ms)}ms` + (top ? `\n후보: ${top}` : "")));
+  }
+  log.appendChild(box);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function ask(text) {
+  text = text.trim();
+  if (!text) return;
+  addUser(text);
+  input.value = "";
+  sendBtn.disabled = true;
+  const t0 = performance.now();
+  try {
+    const res = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: text, conectrIp: "WEB_UI" }),
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    addBot(await res.json(), performance.now() - t0);
+  } catch (e) {
+    log.appendChild(el("div", "msg bot", "서버 오류: " + e.message));
+  } finally {
+    sendBtn.disabled = false;
+    input.focus();
+  }
+}
+
+form.addEventListener("submit", e => { e.preventDefault(); ask(input.value); });
+addBot({ status: "intro", document: ["안녕하세요! 교통사고 통계에 대해 물어보세요."] }, 0);
+log.lastChild.querySelector(".debug")?.remove();
+</script>
+</body>
+</html>
