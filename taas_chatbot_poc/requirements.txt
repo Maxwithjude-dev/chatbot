@@ -7,3 +7,4 @@ rapidfuzz
 requests
 sentence-transformers   # 임베딩 사용 시 (torch 포함, 용량 큼)
 oracledb                # Oracle 모드 사용 시
+scikit-learn            # v7 엔진(TF-IDF 유사도)

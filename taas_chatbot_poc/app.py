@@ -16,14 +16,14 @@ from pydantic import BaseModel
 
 import config
 from data_loader import load_all
-from matcher import SentenceMatcher, load_model
+from matcher import build_matcher, load_model
 
 # ---------------------------------------------------------------
 # 기동 시 1회 준비
 # ---------------------------------------------------------------
 DATA = load_all()
 MODEL = load_model() if config.USE_EMBEDDING else None
-MATCHER = SentenceMatcher(DATA["keyword"], DATA["example"], MODEL)
+MATCHER = build_matcher(DATA, MODEL)
 
 # 메뉴 -> 지식 DB 행 (원본과 동일하게 첫 번째 행 사용)
 KNOWLEDGE = {}

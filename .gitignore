@@ -23,3 +23,6 @@ taas_chatbot_poc/data/
 .idea/
 .DS_Store
 Thumbs.db
+
+# v7 비교 패키지 안의 공단 원본 사본
+v7/**/sources/

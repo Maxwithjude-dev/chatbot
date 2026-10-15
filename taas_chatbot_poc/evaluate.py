@@ -23,6 +23,12 @@ from data_loader import load_all
 
 UNANSWERABLE = "답변불가"
 FALLBACK_MARKERS = ("참고 문서 없음", "답변이 어려운")
+# 제공 제한 메뉴 (링크 없이 '비개방/미보유'로 안내). 시험 정답표에서 '답변불가'로 통일했으므로 같이 맞춤
+RESTRICTED_MENUS = {
+    "1당면허종류", "1당보호장구", "1당성별", "2당면허경과년수", "2당면허종류", "2당보호장구",
+    "2당성별", "2당연령대", "2당차량용도", "2당차종", "개인정보", "미보유", "배달", "법정동",
+    "별도문의", "사상자보호장구", "사상자성별", "실시간",
+}
 
 
 def build_doc_to_menu():
@@ -77,16 +83,15 @@ def main():
         latency = (time.perf_counter() - t0) * 1000
 
         status, menus, cands = parse_response(resp, pairs) if resp else ("error", [], [])
+        menus = list(dict.fromkeys(UNANSWERABLE if m in RESTRICTED_MENUS else m for m in menus))
         top1 = menus[0] if menus else ""
         # 임계값 분석용 (현행 챗봇은 이 키가 없어 빈 값)
         scores = [c.get("score", "") for c in resp.get("candidates", [])] + ["", ""]
         gold = r.정답메뉴
         golds = [g.strip() for g in gold.split("|") if g.strip()]
         answerable = gold != UNANSWERABLE
-        if len(golds) > 1:   # 복수 의도: 정답 메뉴를 모두 안내했는지
-            hit = set(golds) <= set(menus)
-        else:                # 단일 의도: 첫 번째 안내 메뉴가 정답인지
-            hit = top1 == gold
+        # 시험 정답표와 같은 기준: 안내한 메뉴 집합이 정답 집합과 같아야 정답
+        hit = set(menus) == set(golds)
 
         rows.append({
             "질문": r.질문, "정답메뉴": gold, "질문유형": r.질문유형,
@@ -96,7 +101,7 @@ def main():
             "정답여부": answerable and status == "answer" and hit,
             "오답여부": status == "answer" and not hit,
             "되묻기_top3적중": status == "clarify" and any(g in cands[:3] for g in golds),
-            "거절성공": (not answerable) and status != "answer",
+            "거절성공": (not answerable) and (status != "answer" or hit),
             "응답시간_ms": round(latency, 1), "오류": error,
         })
 
@@ -114,6 +119,11 @@ def main():
 
     print("\n================ 평가 결과 ================")
     print(f"전체 질문           : {len(out)}")
+    out["맞음"] = out["정답여부"] | out["거절성공"]
+    print(f"전체 정답률         : {pct(int(out['맞음'].sum()), len(out))}  (거절이 정답인 질문 포함, 시험 정답표 기준)")
+    if "중복" in df.columns:
+        fresh = out[df["중복"].astype(str).str.strip().eq("").values]
+        print(f"  중복 제외         : {pct(int(fresh['맞음'].sum()), len(fresh))}  (예시·앞선 질문과 같은 문장 제외)")
     print(f"Top-1 정확도        : {pct(int(ans['정답여부'].sum()), len(ans))}  (답변 가능 질문 기준)")
     print(f"응답률              : {pct(len(answered), len(out))}")
     print(f"오답률              : {pct(int(answered['오답여부'].sum()), len(answered))}  (답변한 것 중 틀린 비율)")

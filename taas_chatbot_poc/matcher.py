@@ -189,6 +189,16 @@ class SentenceMatcher:
         return MatchResult("fallback", candidates=emb, normalized_query=nq)
 
 
+def build_matcher(data: dict, model=None):
+    """config.ENGINE에 맞는 매처 생성. poc는 기존 SentenceMatcher, v7 계열은 v7_adapter.V7Matcher"""
+    ex = data["example"]
+    is_v7 = ex["SOURCE"].astype(str).str.startswith(config.V7_EXAMPLE_PREFIX) if "SOURCE" in ex else ex.index != ex.index
+    if config.ENGINE == "poc":
+        return SentenceMatcher(data["keyword"], ex[~is_v7], model)
+    from v7_adapter import V7Matcher
+    return V7Matcher(data["knowledge"], data["keyword"], ex[is_v7], model, config.ENGINE)
+
+
 def load_model():
     print(f"[matcher] 모델 로드: {config.MODEL_PATH} ({config.MODEL_TYPE})")
     if config.MODEL_TYPE == "multivector":
