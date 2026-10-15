@@ -97,6 +97,11 @@ CLARIFY_THRESHOLD = float(os.getenv("CHATBOT_CLARIFY_THRESHOLD", "0.60")) # 이�
 CLARIFY_MARGIN = 0.03     # 1등과 2등 점수 차가 이보다 작으면 답변 대신 되묻기
 TOP_K = 3
 
+# 바로가기 주소 (INFORMATION 컬럼으로 생성)
+TAAS_BASE_URL = os.getenv("CHATBOT_TAAS_BASE_URL", "https://taas.koroad.or.kr")
+# 상세통계 '패턴ID|검색어' → 화면 주소. menuId는 모든 상세통계에서 같음 (2026-10-09 교통여건 포함 여러 ID를 브라우저로 열어 확인)
+DETAIL_STAT_URL = TAAS_BASE_URL + "/sta/acs/exs/typical.do?menuId=WEB_KMP_OVT_UAS_PDS&patternId={pattern_id}&searchWord={search_word}"
+
 FALLBACK_MESSAGE = (
     "현재 답변이 어려운 내용입니다. 조금씩 더 똑똑해지겠습니다! "
     "\n(문의) 033-749-5266, 5267, 5269, 5264"

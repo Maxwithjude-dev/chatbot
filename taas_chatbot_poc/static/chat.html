@@ -30,7 +30,11 @@
   .bot { align-self: flex-start; background: var(--bot); border-bottom-left-radius: 4px; }
   .bot p { margin: 0 0 6px; }
   .bot p:last-of-type { margin-bottom: 0; }
-  .info { color: var(--muted); font-size: 13px; }
+  .link {
+    display: inline-block; margin: 2px 0 8px; padding: 3px 10px; border-radius: 999px;
+    border: 1px solid var(--user); color: var(--user); font-size: 13px; text-decoration: none;
+  }
+  .link:hover { background: var(--user); color: var(--user-text); }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .chips button {
     border: 1px solid var(--user); background: transparent; color: var(--user);
@@ -86,8 +90,12 @@ function addBot(resp, ms) {
   (resp.document || []).forEach((doc, i) => {
     const p = el("p", null, doc);
     box.appendChild(p);
-    const info = (resp.information || [])[i];
-    if (resp.status === "answer" && info) box.appendChild(el("p", "info", "· " + info));
+    const url = (resp.url || [])[i];
+    if (resp.status === "answer" && url) {
+      const a = el("a", "link", "바로가기 ↗");
+      a.href = url; a.target = "_blank"; a.rel = "noopener";
+      box.appendChild(a);
+    }
   });
 
   // 되묻기: 후보 메뉴를 버튼으로
