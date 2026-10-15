@@ -26,3 +26,8 @@ Thumbs.db
 
 # v7 비교 패키지 안의 공단 원본 사본
 v7/**/sources/
+
+# 평가 데이터 (공개 저장소라 제외): 평가셋·현행 챗봇 원응답, 비교 엑셀, 평가셋 질문이 담긴 PoC 채점 결과
+v7/**/4_eval_sets/
+v7/**/1_comparison_results/*.xlsx
+v7/**/3_poc_eval_scripts/*.csv

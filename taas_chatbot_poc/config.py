@@ -52,11 +52,12 @@ EXAMPLE_PREFIX = os.getenv("CHATBOT_EXAMPLE_PREFIX", "")
 # ---------------------------------------------------------------
 # 해석 엔진 선택
 # ---------------------------------------------------------------
+# "v7"               : v7 해석 엔진만 (규칙 + 자체 TF-IDF 유사도, KURE 모델 미사용) - 기본값
 # "poc"              : 기존 PoC (사전 → 오타 → KURE 임베딩)
-# "v7"               : v7 해석 엔진만 (규칙 + 자체 TF-IDF 유사도, KURE 모델 미사용)
 # "v7_kure_replace"  : v7 규칙 + v7 TF-IDF 대신 KURE 임베딩
 # "v7_kure_fallback" : v7 규칙 + v7 TF-IDF, 그래도 해석 불가일 때만 KURE 임베딩
-ENGINE = os.getenv("CHATBOT_ENGINE", "poc")
+# KURE 두 변형은 blind6에서 v7 단독 대비 +0.4%p로 효과가 없어 옵션으로만 둡니다 (docs/v7_kure_experiment.md)
+ENGINE = os.getenv("CHATBOT_ENGINE", "v7")
 if ENGINE == "v7":
     USE_EMBEDDING = False
 
