@@ -55,7 +55,7 @@ def verify_frozen():
 
 def _sources_dir(knowledge_df, keyword_df):
     if config.V7_DATA == "v7_sources":
-        return os.path.join(config.V7_DIR, "sources")
+        return config.V7_SOURCES_DIR
     need = {"DOCUMENT", "TERTIARY_MENU", "SUBMENU", "KEYWORD_MENU", "INFORMATION"}
     missing = need - set(knowledge_df.columns)
     if missing:

@@ -61,11 +61,14 @@ ENGINE = os.getenv("CHATBOT_ENGINE", "v7")
 if ENGINE == "v7":
     USE_EMBEDDING = False
 
-# v7 엔진 폴더 (taas_nlu.py, thesaurus.txt, data/, SHA256.txt). 엔진 파일은 수정하지 않고 감싸서 씁니다.
-V7_DIR = os.getenv("CHATBOT_V7_DIR", os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "v7", "comparison_current_vs_claude_v7_vs_poc", "2_claude_v7_rules"))
-# v7에 넘길 지식·키워드: "loader"(data_loader로 읽은 DB/Oracle 데이터) / "v7_sources"(v7 폴더의 sources/ 사본, 비교용)
+# v7 엔진 폴더 (taas_nlu.py, thesaurus.txt, data/, SHA256.txt). 비교 패키지(../v7/)에서 그대로 복사한 동결본이며,
+# 엔진 파일은 수정하지 않고 감싸서 씁니다. 기동 시 SHA256.txt와 대조합니다.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+V7_DIR = os.getenv("CHATBOT_V7_DIR", os.path.join(_HERE, "engine", "v7"))
+# v7에 넘길 지식·키워드: "loader"(data_loader로 읽은 DB/Oracle 데이터) / "v7_sources"(V7_SOURCES_DIR의 원본 사본, 비교용)
 V7_DATA = os.getenv("CHATBOT_V7_DATA", "loader")
+V7_SOURCES_DIR = os.getenv("CHATBOT_V7_SOURCES_DIR", os.path.join(
+    _HERE, "..", "v7", "comparison_current_vs_claude_v7_vs_poc", "2_claude_v7_rules", "sources"))
 
 # 예시 테이블 SOURCE가 이 접두어면 v7 예시(633 + 생성 2,707). v7+KURE 모드는 이것만, poc 모드는 이것을 뺀 나머지를 씁니다.
 V7_EXAMPLE_PREFIX = "v7"

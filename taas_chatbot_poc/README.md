@@ -1,33 +1,53 @@
 # TAAS 챗봇 문장 단위 매칭 PoC
 
-Oracle 없이 로컬에서 바로 돌려볼 수 있는 개선 챗봇 뼈대입니다. 모든 데이터는 더미입니다.
+TAAS 챗봇 개선 서버입니다. 기존 `/chat` 응답 형식을 유지한 채 해석 엔진만 바꿔 끼울 수 있습니다.
+**기본 엔진은 v7**(규칙·사전·슬롯 + TF-IDF 유사도)이며 KURE 모델 없이 동작합니다.
 
-## 파일 구성
-| 파일 | 역할 |
+## 엔진 모드 (`CHATBOT_ENGINE`)
+| 모드 | 동작 | KURE 모델 |
+|---|---|---|
+| `v7` (기본) | v7 해석 엔진만 | 불필요 |
+| `poc` | 기존 PoC: 사전 → 자모 오타 → KURE 임베딩 | 필요 |
+| `v7_kure_replace` | v7 규칙 + TF-IDF 대신 KURE | 필요 |
+| `v7_kure_fallback` | v7 규칙 + TF-IDF, 해석 불가일 때만 KURE | 필요 |
+
+KURE 두 변형은 blind6에서 v7 단독 대비 +0.4%p로 효과가 없어 옵션으로만 둡니다. 자세한 내용은 `../docs/v7_kure_experiment.md`.
+
+## 폴더 구성
+| 경로 | 역할 |
 |---|---|
-| config.py | DB 모드, 테이블명, 모델 경로, 임계값 설정 |
-| create_mock_db.py | 목업 SQLite DB 생성 (키워드·지식 DB·사용자 사전·예시 질문) |
+| app.py | FastAPI 서버, `/chat`(기존 응답 형식 호환), 채팅 화면(`/`), 로그 |
+| config.py | 엔진 모드, DB 모드, 테이블명, 모델 경로, 임계값 |
 | data_loader.py | 데이터 로딩 계층 (sqlite / oracle 전환) |
-| matcher.py | 매칭 파이프라인 (정규화 → 사전 → 자모 오타 → 임베딩) |
-| app.py | FastAPI 서버, 기존 /chat 응답 형식과 호환 |
-| evaluate.py | 평가 스크립트 (현행·개선 챗봇 공통) |
-| eval_sample.csv | 평가셋 예시 |
+| matcher.py | poc 엔진(`SentenceMatcher`) + 모드별 매처 생성(`build_matcher`) |
+| v7_adapter.py | v7 엔진 래퍼: 결과를 `/chat` 형식으로 변환, 기동 시 동결 해시 확인 |
+| engine/v7/ | **v7 엔진 동결본** (taas_nlu.py, thesaurus.txt, data/ 예시 질문, SHA256.txt). 수정 금지 |
+| v7k_thresholds.json | KURE 변형용 임계값 (blind6 채점 전에 고정한 설정 A) |
+| static/chat.html | 채팅 화면 |
+| import_data.py | `data/`의 공단 CSV·시험 엑셀 → `taas.db` + `data/eval/` 평가셋 |
+| evaluate.py | 서버에 평가셋을 보내 채점 (현행·개선 챗봇 공통) |
+| tune_v7_kure.py | KURE 변형 임계값 조정 (blind 세트는 거부) |
+| create_mock_db.py | 목업 SQLite DB (poc 모드 시연용, v7 모드는 실제 데이터 필요) |
+| data/ | 공단 원본 CSV, 시험 엑셀, eval/ 평가셋 — **git 제외**, 따로 받아서 둠 |
+
+`engine/v7/`는 저장소 루트의 `v7/` 비교 패키지에서 그대로 복사한 파일입니다. `v7/`의 나머지(보고서·비교 스크립트)는 참고 자료이며 서버가 쓰지 않습니다.
 
 ## 실행 순서
 ```bash
 pip install -r requirements.txt
-python create_mock_db.py
+python import_data.py                # data/ 원본 → taas.db (최초 1회, 데이터 바뀌면 다시)
 
-# 1) 임베딩 없이 (규칙 매칭만) - 모델 다운로드 없이 바로 확인 가능
-CHATBOT_USE_EMBEDDING=0 uvicorn app:app --port 8000
+# 기본 (v7 엔진, 모델 다운로드 없음)
+uvicorn app:app --port 8000
 
-# 2) 임베딩 포함
-CHATBOT_MODEL_PATH=/models/KURE-v1 uvicorn app:app --port 8000
+# 다른 엔진으로 실행
+CHATBOT_ENGINE=poc uvicorn app:app --port 8000
 
 # 평가 (다른 터미널)
-python evaluate.py --url http://127.0.0.1:8000/chat --eval eval_sample.csv --out result_new.csv
+python evaluate.py --url http://127.0.0.1:8000/chat --eval data/eval/블라인드6.csv --out result_v7.csv
 ```
-Windows에서는 `set CHATBOT_USE_EMBEDDING=0` 처럼 환경변수를 먼저 지정한 뒤 실행하세요.
+Windows PowerShell에서는 `$env:CHATBOT_ENGINE="poc"` 처럼 환경변수를 먼저 지정한 뒤 실행하세요.
+실제 데이터 없이 poc 엔진만 시연하려면 `python create_mock_db.py` 후 `CHATBOT_ENGINE=poc`로 실행합니다.
 
 ## 모델 비교 실험
 모델 경로만 바꿔 서버를 띄우고 같은 평가셋으로 evaluate.py를 돌리면 됩니다.
@@ -58,7 +78,7 @@ CHATBOT_MODEL_TYPE=multivector CHATBOT_MODEL_PATH=/models/KURE-v2 uvicorn app:ap
 3. 예시 질문은 목업 SQLite의 TAAS_CHATBOT_EXAMPLE_QUESTION에 계속 적재
 4. 로그는 별도 SQLite(chatbot_log.db)에 기록됨
 
-## 알려진 단순화 (PoC 범위)
+## 알려진 단순화 (poc 엔진)
 - 사전 매칭이 하나라도 되면 오타·임베딩 단계는 건너뜀
 - 정확한 키워드와 오타 키워드가 섞인 질문은 정확한 쪽만 잡힘
-- 되묻기(status=clarify) 시 candidates를 버튼으로 보여주려면 화면 쪽 수정 필요
+- 띄어쓰기를 지우고 부분 문자열로 찾기 때문에 짧은 키워드가 단어 경계를 넘어 잡힘 (예: '사고가' → '고가')
