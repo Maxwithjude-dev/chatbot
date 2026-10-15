@@ -58,7 +58,7 @@
 <body>
 <div class="app">
   <header>TAAS 챗봇 <small>문장 매칭 PoC</small>
-    <label class="toggle"><input type="checkbox" id="showDebug" checked> 매칭 정보 표시</label>
+    <label class="toggle" id="debugToggle" hidden><input type="checkbox" id="showDebug" checked> 매칭 정보 표시</label>
   </header>
   <div id="log"></div>
   <form id="form">
@@ -72,6 +72,10 @@ const form = document.getElementById("form");
 const input = document.getElementById("q");
 const sendBtn = document.getElementById("send");
 const showDebug = document.getElementById("showDebug");
+// 매칭 정보(상태·경로·점수)는 개발용: 주소에 ?debug=1 을 붙였을 때만 보임
+const DEBUG = new URLSearchParams(location.search).get("debug") === "1";
+document.getElementById("debugToggle").hidden = !DEBUG;
+if (!DEBUG) showDebug.checked = false;
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
