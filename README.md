@@ -1,64 +1,49 @@
-# TAAS 챗봇 문장 단위 매칭 PoC
+# TAAS 챗봇 개선
 
-Oracle 없이 로컬에서 바로 돌려볼 수 있는 개선 챗봇 뼈대입니다. 모든 데이터는 더미입니다.
+TAAS(교통사고분석시스템) 챗봇이 사용자 질문을 알맞은 통계 메뉴로 안내하도록 해석 엔진을 개선하는 프로젝트입니다.
+기존 챗봇의 `/chat` 응답 형식은 그대로 두고, 해석 엔진만 바꿔 끼울 수 있는 FastAPI 서버를 제공합니다.
 
-## 파일 구성
-| 파일 | 역할 |
+- **기본 엔진: v7** — 키워드·동의어 사전, 오타 보정, 가해/피해 등 역할 규칙, 문자 n-gram TF-IDF 유사도.
+  학습된 AI 모델 없이 동작합니다 (torch·GPU 불필요).
+- **옵션: KURE-v1 문장 임베딩** — 기존 PoC 방식과, v7에 KURE를 붙인 두 변형을 설정으로 고를 수 있습니다.
+
+## 결과 요약
+같은 시험 질문(블라인드), 같은 채점 기준(안내 메뉴 집합이 정답과 같아야 정답)으로 비교했습니다.
+
+| 엔진 | 블라인드1~6 (1,420문항) | 블라인드6 (260문항) |
+|---|---:|---:|
+| 현행 TAAS 챗봇 | 41.6% | 40.4% |
+| 기존 PoC (사전 + 오타 + KURE) | 66.3% | 64.2% |
+| **v7 (기본)** | 88.1%¹ | **88.8%** |
+| v7 + KURE (두 변형) | — | 89.2% |
+
+¹ 세트별로 당시 버전으로 잰 값. 블라인드6만 최종 v7을 고정한 뒤 처음 본 시험입니다.
+
+- KURE를 붙여도 v7 대비 +0.4%p(1문항)라 기본 엔진은 v7로 정했습니다 → [docs/v7_kure_experiment.md](docs/v7_kure_experiment.md)
+- 시험 질문과 정답표는 AI(Claude)가 작성했고 정답표는 담당자 검수 전입니다. 실제 이용자 질문으로 다시 확인할 예정입니다.
+
+## 저장소 구성
+| 경로 | 내용 |
 |---|---|
-| config.py | DB 모드, 테이블명, 모델 경로, 임계값 설정 |
-| create_mock_db.py | 목업 SQLite DB 생성 (키워드·지식 DB·사용자 사전·예시 질문) |
-| data_loader.py | 데이터 로딩 계층 (sqlite / oracle 전환) |
-| matcher.py | 매칭 파이프라인 (정규화 → 사전 → 자모 오타 → 임베딩) |
-| app.py | FastAPI 서버, 기존 /chat 응답 형식과 호환 |
-| evaluate.py | 평가 스크립트 (현행·개선 챗봇 공통) |
-| eval_sample.csv | 평가셋 예시 |
+| [taas_chatbot_poc/](taas_chatbot_poc/) | **실행하는 서버.** 실행 방법·엔진 모드·파일 설명은 [taas_chatbot_poc/README.md](taas_chatbot_poc/README.md) |
+| [taas_chatbot_poc/engine/v7/](taas_chatbot_poc/engine/v7/) | v7 해석 엔진 동결본 (규칙 `taas_nlu.py`, 동의어 사전 `thesaurus.txt`, 예시 질문). 수정하지 않음 |
+| [docs/](docs/) | [동작 흐름](docs/chatbot_request_flow.md), [v7 + KURE 실험 기록](docs/v7_kure_experiment.md) |
+| [v7/](v7/) | v7을 만든 팀의 비교 패키지 (보고서·비교 스크립트, 참고용). 서버는 쓰지 않음 |
 
-## 실행 순서
+## 빠른 시작
 ```bash
+cd taas_chatbot_poc
 pip install -r requirements.txt
-python create_mock_db.py
-
-# 1) 임베딩 없이 (규칙 매칭만) - 모델 다운로드 없이 바로 확인 가능
-CHATBOT_USE_EMBEDDING=0 uvicorn app:app --port 8000
-
-# 2) 임베딩 포함
-CHATBOT_MODEL_PATH=/models/KURE-v1 uvicorn app:app --port 8000
-
-# 평가 (다른 터미널)
-python evaluate.py --url http://localhost:8000/chat --eval eval_sample.csv --out result_new.csv
+python import_data.py          # data/의 공단 데이터 → taas.db (최초 1회)
+uvicorn app:app --port 8000    # 기본 v7 엔진
 ```
-Windows에서는 `set CHATBOT_USE_EMBEDDING=0` 처럼 환경변수를 먼저 지정한 뒤 실행하세요.
+브라우저에서 http://127.0.0.1:8000/ 을 열면 채팅 화면이 나옵니다 (`?debug=1`을 붙이면 해석 경로·점수 표시).
 
-## 모델 비교 실험
-모델 경로만 바꿔 서버를 띄우고 같은 평가셋으로 evaluate.py를 돌리면 됩니다.
-- multilingual-e5 계열은 `CHATBOT_QUERY_PREFIX="query: "`, `CHATBOT_EXAMPLE_PREFIX="query: "` 지정
-- 모델마다 유사도 분포가 달라서 `CHATBOT_ANSWER_THRESHOLD`, `CHATBOT_CLARIFY_THRESHOLD`를 평가셋으로 다시 맞춰야 공정한 비교가 됩니다.
+**데이터는 저장소에 포함되어 있지 않습니다.** 공단 지식·키워드 데이터(`DOCUMENT_SET.csv`, `KEYWORD_SET.csv`)와
+시험 질문 엑셀을 따로 받아 `taas_chatbot_poc/data/`에 두어야 합니다.
+데이터 없이 기존 PoC 엔진만 시연하려면 `python create_mock_db.py` 후 `CHATBOT_ENGINE=poc uvicorn app:app`.
 
-## KURE-v2 (멀티벡터 모델) 사용
-KURE-v2는 ColBERT 계열이라 `SentenceTransformer`가 아니라 `MultiVectorEncoder`로 불러옵니다.
-sentence-transformers 6.x는 Python 3.10 이상, transformers 5.x가 필요하므로 현행 챗봇과 별도 가상환경을 권장합니다.
-```bash
-pip install -U "sentence-transformers>=6.0"
-CHATBOT_MODEL_TYPE=multivector CHATBOT_MODEL_PATH=/models/KURE-v2 uvicorn app:app --port 8000
-```
-점수는 MeanMaxSim(0~1 근처)이라 dense 모델과 분포가 다릅니다. 임계값을 평가셋으로 따로 맞추세요.
-
-## 현행 챗봇 평가
-현행 서버 주소로 evaluate.py를 그대로 실행하면 됩니다. 현행 응답에는 메뉴명이 없어서
-답변 문구를 지식 DB의 DOCUMENT와 대조해 메뉴를 역추적합니다 (같은 지식 DB를 써야 함).
-요청 시 `--ip EVAL_TEST` 식별값이 로그에 남으니 운영 로그 분석 때 제외하세요.
-
-## 평가셋 형식
-`질문, 정답메뉴, 질문유형` 컬럼. 답변하면 안 되는 질문은 정답메뉴에 `답변불가`,
-복수 의도 질문은 `음주운전|이륜차`처럼 `|`로 구분합니다. 질문유형은 쉼표로 여러 개 가능합니다.
-
-## 공단 DB 수령 후 할 일
-1. config.py의 TABLES를 실제 테이블명으로 교체
-2. `CHATBOT_DB_MODE=oracle` 과 ORACLE_USER / ORACLE_PASSWORD / ORACLE_DSN 지정 (운영 DB는 읽기만 함)
-3. 예시 질문은 목업 SQLite의 TAAS_CHATBOT_EXAMPLE_QUESTION에 계속 적재
-4. 로그는 별도 SQLite(chatbot_log.db)에 기록됨
-
-## 알려진 단순화 (PoC 범위)
-- 사전 매칭이 하나라도 되면 오타·임베딩 단계는 건너뜀
-- 정확한 키워드와 오타 키워드가 섞인 질문은 정확한 쪽만 잡힘
-- 되묻기(status=clarify) 시 candidates를 버튼으로 보여주려면 화면 쪽 수정 필요
+## 원칙
+- 운영 챗봇과 공단 DB는 변경하지 않습니다 (Oracle은 읽기 전용, 로그는 별도 SQLite).
+- v7 엔진 파일은 동결본이며 서버 기동 시 `SHA256.txt`로 확인합니다. 규칙을 고칠 때는 새 버전(v8)으로 분리합니다.
+- 공단 원본 데이터와 평가셋은 공개 저장소에 올리지 않습니다.
