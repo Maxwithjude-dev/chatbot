@@ -1,0 +1,2 @@
+# v7 엔진 동결본: 줄바꿈 변환 금지 (SHA256.txt 해시와 바이트 단위로 같아야 함)
+taas_chatbot_poc/engine/v7/** -text

@@ -1,0 +1,9 @@
+{
+  "_설명": "v7+KURE 모드의 KURE 임계값 [답변, 되묻기, 1·2등 차이]. blind6 채점 전에 고정 (2026-10-15).",
+  "_근거": "설정 A = PoC 기본값. eval_dev에서 KURE 도달 문항 replace 2/407, fallback 0/407, blind1~5에서 replace 40/1160, fallback 5/1160으로 모두 50개 미만이라 조정값(설정 B)은 만들지 않음.",
+  "setting": "A",
+  "A": {
+    "v7_kure_replace": [0.75, 0.60, 0.03],
+    "v7_kure_fallback": [0.75, 0.60, 0.03]
+  }
+}

@@ -9,6 +9,7 @@ import json
 import sqlite3
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
@@ -16,14 +17,14 @@ from pydantic import BaseModel
 
 import config
 from data_loader import load_all
-from matcher import SentenceMatcher, load_model
+from matcher import build_matcher, load_model
 
 # ---------------------------------------------------------------
 # 기동 시 1회 준비
 # ---------------------------------------------------------------
 DATA = load_all()
 MODEL = load_model() if config.USE_EMBEDDING else None
-MATCHER = SentenceMatcher(DATA["keyword"], DATA["example"], MODEL)
+MATCHER = build_matcher(DATA, MODEL)
 
 # 메뉴 -> 지식 DB 행 (원본과 동일하게 첫 번째 행 사용)
 KNOWLEDGE = {}
@@ -64,9 +65,27 @@ def build_document(menu: str):
     return doc, row["KEYWORD_MENU"], row["INFORMATION"], row["IS_URL_PROVIDE"]
 
 
+def build_link(menu: str) -> str:
+    """INFORMATION으로 바로가기 주소 생성. 링크 제공 안 하는 메뉴(IS_URL_PROVIDE=0)·형식이 다른 값은 빈 문자열
+    - 상세통계: '패턴ID|검색어' → 상세통계 화면 주소
+    - 메뉴안내: '버튼이름|경로' → 경로 (상대경로는 TAAS 주소를 붙임)"""
+    row = KNOWLEDGE.get(menu)
+    if row is None or row["IS_URL_PROVIDE"] != "1" or "|" not in row["INFORMATION"]:
+        return ""
+    head, tail = (x.strip() for x in row["INFORMATION"].split("|", 1))
+    if row["KEYWORD_MENU"] == "상세통계":
+        if not head.isdigit():
+            return ""
+        return config.DETAIL_STAT_URL.format(pattern_id=head, search_word=quote(tail))
+    if tail.startswith("/"):
+        return config.TAAS_BASE_URL + tail
+    return tail if tail.startswith("http") else ""
+
+
 def build_response(result) -> dict:
     resp = {
         "document": [], "keyword_menu": [], "information": [], "is_url_provide": [],
+        "url": [],   # 추가 키: document와 같은 순서의 바로가기 주소 (없으면 빈 문자열)
         "inference": False,
         "status": result.status,
         "tertiary_menu": [],
@@ -83,6 +102,7 @@ def build_response(result) -> dict:
             resp["keyword_menu"].append(km)
             resp["information"].append(info)
             resp["is_url_provide"].append(url)
+            resp["url"].append(build_link(c.menu))
             resp["tertiary_menu"].append(c.menu)
     elif result.status == "clarify":
         resp["match_stage"] = "embedding"
