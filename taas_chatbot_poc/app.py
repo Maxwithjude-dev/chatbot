@@ -105,7 +105,8 @@ def build_response(result) -> dict:
             resp["url"].append(build_link(c.menu))
             resp["tertiary_menu"].append(c.menu)
     elif result.status == "clarify":
-        resp["match_stage"] = "embedding"
+        # 후보를 낸 단계 그대로 (poc·KURE: embedding, v7: v7:되묻기)
+        resp["match_stage"] = result.candidates[0].stage if result.candidates else "clarify"
         resp["document"].append(config.CLARIFY_MESSAGE)
     else:
         resp["document"].append(config.FALLBACK_MESSAGE)
