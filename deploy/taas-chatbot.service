@@ -1,0 +1,19 @@
+# TAAS 챗봇 서버 (systemd) - /etc/systemd/system/taas-chatbot.service 로 복사해서 사용
+# 경로는 Amazon Linux 기본 사용자(ec2-user)가 저장소를 ~/chatbot 에 받았다고 가정
+[Unit]
+Description=TAAS chatbot (FastAPI, v7 engine)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ec2-user
+WorkingDirectory=/home/ec2-user/chatbot/taas_chatbot_poc
+Environment=CHATBOT_ENGINE=v7
+Environment=PYTHONUNBUFFERED=1
+# 로그 DB가 SQLite라 워커는 1개
+ExecStart=/home/ec2-user/chatbot/.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000 --workers 1
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

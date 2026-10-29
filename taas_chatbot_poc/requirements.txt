@@ -1,3 +1,5 @@
+# 기본 설치: v7 엔진(기본 모드)으로 서버 실행·데이터 적재·평가. torch 없음
+# KURE 임베딩 모드(poc, v7_kure_*)를 쓰려면 requirements-kure.txt를 추가로 설치
 fastapi
 uvicorn
 pydantic
@@ -5,6 +7,6 @@ pandas
 numpy
 rapidfuzz
 requests
-sentence-transformers   # 임베딩 사용 시 (torch 포함, 용량 큼)
-oracledb                # Oracle 모드 사용 시
 scikit-learn            # v7 엔진(TF-IDF 유사도)
+openpyxl                # import_data.py가 시험 질문 엑셀을 읽을 때
+oracledb                # Oracle 모드 사용 시 (thin 모드는 별도 클라이언트 불필요)
