@@ -1,0 +1,4 @@
+# KURE 임베딩 모드용 추가 설치 (CHATBOT_ENGINE=poc / v7_kure_replace / v7_kure_fallback)
+# torch 포함이라 용량이 큽니다 (CPU 버전 권장: --index-url https://download.pytorch.org/whl/cpu 로 torch 먼저 설치)
+-r requirements.txt
+sentence-transformers

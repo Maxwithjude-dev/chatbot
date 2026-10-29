@@ -58,15 +58,21 @@ def load_v7_examples(menus):
 def main():
     doc = read_csv("DOCUMENT_SET.csv")
     kw = read_csv("KEYWORD_SET.csv")
-    xlsx = sorted(glob.glob(os.path.join(DATA_DIR, "03_테스트질문_*.xlsx")))[-1]
-    qs = pd.read_excel(xlsx, sheet_name="전체_질문별_비교", dtype=str).fillna("")
-    qs["정답메뉴"] = qs["정답 메뉴(검수 전)"].str.replace("+", "|", regex=False)
-
-    # 예시 질문: 개발용 중 정답이 메뉴 하나이고 지식 DB에 있는 것만
     menus = dict(zip(doc["TERTIARY_MENU"], doc["KEYWORD_MENU"]))
-    dev = qs[(qs["세트"] == "개발용") & ~qs["정답메뉴"].str.contains("|", regex=False)]
-    dev = dev[dev["정답메뉴"].isin(menus.keys())]
-    examples = [(r["질문"], r["정답메뉴"], menus[r["정답메뉴"]], f"개발용:{r['ID']}") for _, r in dev.iterrows()]
+
+    # 시험 질문 엑셀은 선택: 있으면 개발용 예시(poc 모드용)와 평가셋을 만들고, 없으면 건너뜀 (v7 모드 운영에는 불필요)
+    xlsx = sorted(glob.glob(os.path.join(DATA_DIR, "03_테스트질문_*.xlsx")))
+    qs = None
+    examples = []
+    if xlsx:
+        qs = pd.read_excel(xlsx[-1], sheet_name="전체_질문별_비교", dtype=str).fillna("")
+        qs["정답메뉴"] = qs["정답 메뉴(검수 전)"].str.replace("+", "|", regex=False)
+        # 예시 질문: 개발용 중 정답이 메뉴 하나이고 지식 DB에 있는 것만
+        dev = qs[(qs["세트"] == "개발용") & ~qs["정답메뉴"].str.contains("|", regex=False)]
+        dev = dev[dev["정답메뉴"].isin(menus.keys())]
+        examples = [(r["질문"], r["정답메뉴"], menus[r["정답메뉴"]], f"개발용:{r['ID']}") for _, r in dev.iterrows()]
+    else:
+        print("[안내] 시험 질문 엑셀 없음 - 개발용 예시(poc 모드용)와 평가셋은 만들지 않음")
     examples += load_v7_examples(menus)
 
     if os.path.exists(DB_PATH):
@@ -83,7 +89,9 @@ def main():
             f"INSERT INTO {T['example']} (QUESTION, TERTIARY_MENU, KEYWORD_MENU, SOURCE) VALUES (?, ?, ?, ?)",
             examples,
         )
-    print(f"{DB_PATH} 생성: 지식 {len(doc)}건, 키워드 {len(kw)}건, 예시 질문 {len(examples)}건 (개발용 {len(qs[qs['세트'] == '개발용'])}건 중)")
+    print(f"{DB_PATH} 생성: 지식 {len(doc)}건, 키워드 {len(kw)}건, 예시 질문 {len(examples)}건")
+    if qs is None:
+        return
 
     # 세트별 평가셋 (현행·v7 판정도 같이 넣어 두면 나중에 나란히 비교 가능)
     out_dir = os.path.join(DATA_DIR, "eval")
